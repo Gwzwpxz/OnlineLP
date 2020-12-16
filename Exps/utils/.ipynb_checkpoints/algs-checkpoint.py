@@ -33,7 +33,11 @@ def fastLP(A, b, c, K, Method):
         for j in p:
             
             stepsize = 1 / np.sqrt(n * (i + 1))
-            aa = A[:, j].reshape(m, 1)
+            
+            if type(A) == scipy.sparse.csc.csc_matrix:
+                aa = A[:, j].todense().reshape(m, 1)
+            else:
+                aa = A[:, j].reshape(m, 1)
             xk = (c[j] > np.dot(aa.T, y))
             
             if Method  == "M":
@@ -59,7 +63,8 @@ def rounding(A, b, c, x):
     
     for i in p:
         aa = A[:, i].reshape(m, 1)
-        if (np.min(b - aa) >= 0):
+        isround = (np.random.rand() <= x[i])
+        if isround and (np.min(b - aa) >= 0):
             rdx[i] = 1
             b = b - aa
     
@@ -71,7 +76,7 @@ def rounding(A, b, c, x):
 def GRBLP(A, b, c):
     
     model = Model()
-    x = model.addMVar(n, lb=0.0, ub=1.0, vtype=GRB.CONTINUOUS)
+    x = model.addMVar(c.size, lb=0.0, ub=1.0, vtype=GRB.CONTINUOUS)
     constr = model.addMConstr(A, x, GRB.LESS_EQUAL, b.squeeze())
     model.setMObjective(Q=None, c=c.squeeze(), constant=0.0, sense=GRB.MAXIMIZE)
     model.update()
@@ -83,4 +88,25 @@ def GRBLP(A, b, c):
     
     return {"x": optx, "y": optdual, "time": time, "model": model, "obj": obj}
 
-# Gurobi MIP
+# Gurobi MIP with initialization
+def GRBMIP(A, b, c, initX=None):
+    
+    model = Model()
+    x = model.addMVar(c.size, vtype=GRB.BINARY)
+    
+    # Set initial solution
+    if initX is not None:
+        for i in range(c.size):
+            x[i].setAttr(GRB.Attr.Start, initX[i])
+    
+    constr = model.addMConstr(A, x, GRB.LESS_EQUAL, b.squeeze())
+    model.setMObjective(Q=None, c=c.squeeze(), constant=0.0, sense=GRB.MAXIMIZE)
+    model.setParam(GRB.Param.MIPGap, 0.01)
+    model.update()
+    model.optimize()
+    optx = model.getAttr(GRB.Attr.X, model.getVars())
+    time = model.getAttr(GRB.Attr.Runtime)
+    obj = model.getAttr(GRB.Attr.ObjVal)
+    
+    return {"x": optx, "time": time, "model": model, "obj": obj}
+
