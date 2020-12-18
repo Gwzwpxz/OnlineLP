@@ -1,0 +1,101 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%        OnLine Linear Progamming Solution Routine Matlab Interface       %
+%                                                                         %
+%                 Version 0.2     Nov 1st, 2020                           %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This is a test script of OLLP solution routine                          %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%    Li, Xiaocheng , C. Sun , and Y. Ye . "Simple and Fast Algorithm for  %
+%    Binary Integer and Online Linear Programming." (2020).               %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Get parameter struct
+params = SetDefaultParam();
+
+% Adjust parameters
+params.CheckInnerFeas = true;
+params.BoostingParam = 10;
+params.Xmax = 5;
+params.Momentum = 0;
+params.Metric = "L2";
+params.SubAlg = "SubGrad";
+
+% Generate data
+m = 5;
+n = 100;
+
+% A = randn(m, n) + 1; 
+% b = n^(1/3) * (rand(m, 1) + 1) / 3;
+% c = sum(A, 1)'/m - rand(n, 1) * m;
+% A = randi(1000, m, n) / 100;
+% b = 0.25 * sum(A, 2);
+% c = sum(A, 1)'/m + rand(n, 1) * 5;
+% 
+% data.A = A;
+% data.b = b;
+% data.c = c;
+data = gendata(m, n, 1, 0.25, 1, 1);
+
+A = data.A;
+b = data.b;
+c = data.c;
+
+% Solve problem
+[optx, info] = OLLP(data, params);
+
+LPSolution = optx.Lpx;
+IPSolution = optx.Ipx;
+
+% Verify feasibility
+if (sum(A * LPSolution <= b) == m)
+    disp("LP solution is feasible");
+else
+    disp("LP solution is not feasible");
+end % End if
+
+if (sum(A * IPSolution <= b) == m)
+    disp("IP solution is feasible");
+else
+    disp("IP solution is not feasible");
+end % End if
+
+% Total solution time for OLLP
+OLLPSolutiontime = info.OLLPtime;
+
+% Solution time for LP
+LPSolutiontime = info.LPtime;
+
+% Solution time for Rounding
+Roundingtime = info.Rtime;
+
+% A brief summary of problem data
+ProblemIntroduction = info.Probintro;
+
+% Dual price vector
+PriceVector = info.PriceVec;
+
+% Relaxed LP objective
+LPobjectiveValue = info.LPobj;
+
+% IP objective
+IPobjectiveValue = info.IPobj;
+
+% Do comparison
+model.A = sparse(A);
+model.rhs = b;
+model.sense = '<';
+model.modelsense = 'max';
+model.ub = ones(n, 1) * params.Xmax;
+model.obj = c;
+
+grbparams.OutputFlag = 0;
+grbparams.LogToConsole = 0;
+sol = gurobi(model, grbparams);
+% [x, fval, ~, ~, y] = linprog(-c, A, b, [], [], zeros(n, 1), ones(n, 1) * params.Xmax);
+% y = y.ineqlin;
+fval = sol.objval;
+optdual = sol.pi;
+
+% The approximation ratio is
+disp("LP Approximation ratio: " + (LPobjectiveValue / fval * 100) + " %");
+disp("IP Approximation ratio: " + (IPobjectiveValue / fval * 100) + " %");
+

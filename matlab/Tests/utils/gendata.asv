@@ -1,0 +1,20 @@
+function [data] = gendata(m, n, type, tightness, sps, bord)
+% Data generator for online algorithm test
+% Only two types of data will be considered during trace of the test:
+% 1. Chu & Beasley's MKP Benchmark
+% 2. LSY's data generation method
+
+if type == 1
+    if sps < 1
+        data.A = round(sprand(m, n, sps), 2) * 10;
+    else
+        data.A = randi(1000, m, n) / 100;
+    end % End if
+    data.b = 0.25 * sum(A, 2);
+    c = sum(A, 1)'/m + rand(n, 1) * 5;
+end % End if
+
+
+
+
+end % End function
